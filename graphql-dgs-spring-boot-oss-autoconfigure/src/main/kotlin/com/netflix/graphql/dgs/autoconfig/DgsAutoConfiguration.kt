@@ -51,6 +51,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Import
 import org.springframework.core.env.Environment
 import java.util.*
 import kotlin.streams.toList
@@ -63,6 +64,7 @@ import kotlin.streams.toList
 @Configuration
 @EnableConfigurationProperties(value = [DgsConfigurationProperties::class, DgsIntrospectionConfigurationProperties::class])
 @ImportAutoConfiguration(classes = [JacksonAutoConfiguration::class])
+@Import(MethodDataFetcherFactory::class)
 open class DgsAutoConfiguration(
     private val configProps: DgsConfigurationProperties
 ) {
@@ -154,26 +156,25 @@ open class DgsAutoConfiguration(
         federationResolver: Optional<DgsFederationResolver>,
         existingTypeDefinitionFactory: Optional<TypeDefinitionRegistry>,
         existingCodeRegistry: Optional<GraphQLCodeRegistry>,
-        mockProviders: Optional<Set<MockProvider>>,
+        mockProviders: ObjectProvider<MockProvider>,
         dataFetcherResultProcessors: List<DataFetcherResultProcessor>,
         dataFetcherExceptionHandler: Optional<DataFetcherExceptionHandler> = Optional.empty(),
         cookieValueResolver: Optional<CookieValueResolver> = Optional.empty(),
-        inputObjectMapper: Optional<InputObjectMapper> = Optional.empty(),
         entityFetcherRegistry: EntityFetcherRegistry,
-        defaultDataFetcherFactory: Optional<DataFetcherFactory<*>> = Optional.empty()
+        defaultDataFetcherFactory: Optional<DataFetcherFactory<*>> = Optional.empty(),
+        methodDataFetcherFactory: MethodDataFetcherFactory
     ): DgsSchemaProvider {
         return DgsSchemaProvider(
-            applicationContext,
-            federationResolver,
-            existingTypeDefinitionFactory,
-            mockProviders,
-            configProps.schemaLocations,
-            dataFetcherResultProcessors,
-            dataFetcherExceptionHandler,
-            cookieValueResolver,
-            inputObjectMapper.orElse(DefaultInputObjectMapper()),
-            entityFetcherRegistry,
-            defaultDataFetcherFactory
+            applicationContext = applicationContext,
+            federationResolver = federationResolver,
+            existingTypeDefinitionRegistry = existingTypeDefinitionFactory,
+            mockProviders = mockProviders.toSet(),
+            schemaLocations = configProps.schemaLocations,
+            dataFetcherResultProcessors = dataFetcherResultProcessors,
+            dataFetcherExceptionHandler = dataFetcherExceptionHandler,
+            entityFetcherRegistry = entityFetcherRegistry,
+            defaultDataFetcherFactory = defaultDataFetcherFactory,
+            methodDataFetcherFactory = methodDataFetcherFactory
         )
     }
 
@@ -235,5 +236,26 @@ open class DgsAutoConfiguration(
     @ConditionalOnClass(name = ["reactor.core.publisher.Flux"])
     open fun fluxReactiveDataFetcherResultProcessor(): FluxDataFetcherResultProcessor {
         return FluxDataFetcherResultProcessor()
+    }
+
+    @Bean
+    open fun inputArgumentResolver(inputObjectMapper: ObjectProvider<InputObjectMapper>): ArgumentResolver {
+        val mapper = inputObjectMapper.ifAvailable ?: DefaultInputObjectMapper()
+        return InputArgumentResolver(mapper)
+    }
+
+    @Bean
+    open fun dataFetchingEnvironmentArgumentResolver(): ArgumentResolver {
+        return DataFetchingEnvironmentArgumentResolver()
+    }
+
+    @Bean
+    open fun coroutineArgumentResolver(): ArgumentResolver {
+        return ContinuationArgumentResolver()
+    }
+
+    @Bean
+    open fun fallbackDfeArgumentResolver(): ArgumentResolver {
+        return FallbackEnvironmentArgumentResolver()
     }
 }

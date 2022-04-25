@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Netflix, Inc.
+ * Copyright 2022 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,18 @@
  * limitations under the License.
  */
 
-dependencies {
-    api(project(":graphql-error-types"))
-    api(project(":graphql-dgs"))
+package com.netflix.graphql.dgs.internal
 
-    implementation(kotlin("reflect"))
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
-    implementation("org.springframework:spring-web")
-    compileOnly("javax.servlet:javax.servlet-api")
+import graphql.schema.DataFetchingEnvironment
+import org.springframework.core.MethodParameter
+import kotlin.coroutines.Continuation
 
-    testImplementation("org.springframework.boot:spring-boot-starter-test")
-    testImplementation("javax.servlet:javax.servlet-api")
+class ContinuationArgumentResolver : ArgumentResolver {
+    override fun supportsParameter(parameter: MethodParameter): Boolean {
+        return parameter.parameterType == Continuation::class.java
+    }
+
+    override fun resolveArgument(parameter: MethodParameter, dfe: DataFetchingEnvironment): Any? {
+        return null
+    }
 }
